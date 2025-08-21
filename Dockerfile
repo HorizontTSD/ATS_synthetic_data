@@ -12,4 +12,4 @@ RUN pip install -U pip setuptools wheel
 RUN pip install pdm
 RUN pdm install --prod --no-lock --no-editable
 
-ENTRYPOINT ["pdm", "run", "src/main.py"]
+ENTRYPOINT ["pdm", "run", "--", "python", "-u", "src/main.py"]

@@ -1,6 +1,7 @@
 import os
 import time
 import pandas as pd
+import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from tqdm import tqdm
@@ -10,6 +11,12 @@ home_path = os.getcwd()
 path_to_save_synthetic_data = os.path.join(home_path, "src", "data", "ats_data_synthetic")
 default_start_date = "2020-08-21 08:00:00"
 BATCH_SIZE = 300
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] %(message)s',
+    handlers=[logging.StreamHandler()]
+)
 
 def load_synthetic_data():
     try:
@@ -22,7 +29,7 @@ def load_synthetic_data():
             "electrical_consumption_arkhangelskaya_obl": df_ark
         }
     except Exception as e:
-        print(f"[{datetime.now()}] Ошибка при загрузке CSV: {e}")
+        logging.error(f"Ошибка при загрузке CSV: {e}")
         raise
 
 dict_dfs = load_synthetic_data()
@@ -44,7 +51,7 @@ def insert_data(conn, table_name: str, df: pd.DataFrame) -> int:
     df["datetime"] = pd.to_datetime(df["datetime"]).dt.strftime("%Y-%m-%d %H:%M:%S")
     rows_added = 0
     try:
-        for start in tqdm(range(0, len(df), BATCH_SIZE), desc=f"Inserting into {table_name}", unit="batch"):
+        for start in tqdm(range(0, len(df), BATCH_SIZE), desc=f"Inserting into {table_name}", unit="batch", disable=True):
             batch = df.iloc[start:start+BATCH_SIZE]
             cursor.executemany(f"""
                 INSERT INTO {table_name} (datetime, day_zone, dSO_GP, VC_PPP, VC_fact, I_ee_ph, I_em_ph, I_otkl_ph)
@@ -52,9 +59,9 @@ def insert_data(conn, table_name: str, df: pd.DataFrame) -> int:
             """, batch[["datetime", "day_zone", "dSO_GP", "VC_PPP", "VC_fact", "I_ee_ph", "I_em_ph", "I_otkl_ph"]].values.tolist())
             conn.commit()
             rows_added += len(batch)
-        print(f"[{datetime.now()}] Вставлено {rows_added} строк в {table_name}")
+        logging.info(f"Вставлено {rows_added} строк в {table_name}")
     except Exception as e:
-        print(f"[{datetime.now()}] Ошибка при вставке данных в {table_name}: {e}")
+        logging.error(f"Ошибка при вставке данных в {table_name}: {e}")
     return rows_added
 
 def refresh_and_append():
@@ -93,13 +100,16 @@ def refresh_and_append():
 
         summary.append(f"{table}: {rows_added} rows added")
 
-    print(f"[{datetime.now()}] Итог по всем таблицам: " + " | ".join(summary))
+    logging.info("Итог по всем таблицам: " + " | ".join(summary))
 
 def run_forever(interval_seconds: int = 60):
-    print(f"[{datetime.now()}] run_forever запущен, интервал: {interval_seconds} секунд")
+    logging.info(f"run_forever запущен, интервал: {interval_seconds} секунд")
     while True:
         try:
             refresh_and_append()
         except Exception as e:
-            print(f"[{datetime.now()}] Ошибка в run_forever: {e}")
+            logging.error(f"Ошибка в run_forever: {e}")
         time.sleep(interval_seconds)
+
+if __name__ == "__main__":
+    run_forever(interval_seconds=60)
