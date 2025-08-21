@@ -1,5 +1,5 @@
 [project]
-name = "template"
+name = "ats_synthetic_data"
 version = "0.1.0"
 description = ""
 authors = [
@@ -19,8 +19,11 @@ dependencies = [
     "coverage==7.4.4",
     "environs>=14.3.0",
     "ruff>=0.12.7",
+    "plotly>=6.3.0",
+    "psycopg2-binary>=2.9.10",
+    "tqdm>=4.67.1",
 ]
-requires-python = "==3.12.*"
+requires-python = "==3.11.*"
 readme = "README.md"
 license = {text = "MIT"}
 

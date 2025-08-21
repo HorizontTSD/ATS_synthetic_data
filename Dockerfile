@@ -16,4 +16,4 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:7070/docs || exit 1
 
 
-ENTRYPOINT ["pdm", "run", "src/server.py"]
+ENTRYPOINT ["pdm", "run", "src/main.py"]
