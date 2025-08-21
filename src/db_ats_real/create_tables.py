@@ -1,7 +1,6 @@
 from src.db_clients.clients import get_db_connection
 
 conn = get_db_connection()
-
 cursor = conn.cursor()
 
 tables = {
@@ -15,7 +14,8 @@ tables = {
             VC_fact REAL,
             I_ee_ph REAL,
             I_em_ph REAL,
-            I_otkl_ph REAL
+            I_otkl_ph REAL,
+            CONSTRAINT arkhangelsk_datetime_unique UNIQUE(datetime)
         )
     """,
     "electrical_consumption_amurskaya_obl": """
@@ -28,7 +28,8 @@ tables = {
             VC_fact REAL,
             I_ee_ph REAL,
             I_em_ph REAL,
-            I_otkl_ph REAL
+            I_otkl_ph REAL,
+            CONSTRAINT amurskaya_datetime_unique UNIQUE(datetime)
         )
     """,
     "electrical_consumption_evreyskaya_obl": """
@@ -41,7 +42,8 @@ tables = {
             VC_fact REAL,
             I_ee_ph REAL,
             I_em_ph REAL,
-            I_otkl_ph REAL
+            I_otkl_ph REAL,
+            CONSTRAINT evreyskaya_datetime_unique UNIQUE(datetime)
         )
     """
 }

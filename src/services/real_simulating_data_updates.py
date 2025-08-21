@@ -4,12 +4,11 @@ import pandas as pd
 import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from tqdm import tqdm
 from src.db_clients.clients import get_db_connection
 
 home_path = os.getcwd()
 path_to_save_synthetic_data = os.path.join(home_path, "src", "data", "ats_data_synthetic")
-default_start_date = "2020-08-21 08:00:00"
+default_start_date = "2020-01-01 01:00:00"
 BATCH_SIZE = 300
 
 logging.basicConfig(
@@ -48,18 +47,28 @@ def insert_data(conn, table_name: str, df: pd.DataFrame) -> int:
         "I_откл ph": "I_otkl_ph",
     }
     df = df.rename(columns=column_mapping)
-    df["datetime"] = pd.to_datetime(df["datetime"]).dt.strftime("%Y-%m-%d %H:%M:%S")
+    df["datetime"] = pd.to_datetime(df["datetime"])
+    df = df.sort_values("datetime")  # сортировка по возрастанию
     rows_added = 0
     try:
-        for start in tqdm(range(0, len(df), BATCH_SIZE), desc=f"Inserting into {table_name}", unit="batch", disable=True):
+        for start in range(0, len(df), BATCH_SIZE):
             batch = df.iloc[start:start+BATCH_SIZE]
             cursor.executemany(f"""
-                INSERT INTO {table_name} (datetime, day_zone, dSO_GP, VC_PPP, VC_fact, I_ee_ph, I_em_ph, I_otkl_ph)
+                INSERT INTO {table_name} 
+                    (datetime, day_zone, dSO_GP, VC_PPP, VC_fact, I_ee_ph, I_em_ph, I_otkl_ph)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (datetime) DO UPDATE SET
+                    day_zone = EXCLUDED.day_zone,
+                    dSO_GP = EXCLUDED.dSO_GP,
+                    VC_PPP = EXCLUDED.VC_PPP,
+                    VC_fact = EXCLUDED.VC_fact,
+                    I_ee_ph = EXCLUDED.I_ee_ph,
+                    I_em_ph = EXCLUDED.I_em_ph,
+                    I_otkl_ph = EXCLUDED.I_otkl_ph
             """, batch[["datetime", "day_zone", "dSO_GP", "VC_PPP", "VC_fact", "I_ee_ph", "I_em_ph", "I_otkl_ph"]].values.tolist())
             conn.commit()
             rows_added += len(batch)
-        logging.info(f"Вставлено {rows_added} строк в {table_name}")
+        logging.info(f"Вставлено/обновлено {rows_added} строк в {table_name}")
     except Exception as e:
         logging.error(f"Ошибка при вставке данных в {table_name}: {e}")
     return rows_added
@@ -72,23 +81,23 @@ def refresh_and_append():
         rows_added = 0
         try:
             conn = get_db_connection()
-            cursor = conn.cursor()
-            try:
-                cursor.execute(get_last_datetime_query(table))
-                last_time_in_table = cursor.fetchone()[0]
-            except Exception:
-                last_time_in_table = None
-
             df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
             if df["datetime"].dt.tz is None:
                 df["datetime"] = df["datetime"].dt.tz_localize(moscow_tz)
             df["datetime"] = df["datetime"].dt.tz_convert(moscow_tz).dt.tz_localize(None)
 
+            try:
+                cursor = conn.cursor()
+                cursor.execute(get_last_datetime_query(table))
+                last_time_in_table = cursor.fetchone()[0]
+            except Exception:
+                last_time_in_table = None
+
             start_date = pd.to_datetime(default_start_date) if last_time_in_table is None else pd.to_datetime(last_time_in_table)
             start_date = start_date.tz_localize(moscow_tz).tz_convert(moscow_tz).tz_localize(None)
             moscow_time = datetime.now(moscow_tz).replace(tzinfo=None)
-
             df_to_write = df[(df["datetime"] > start_date) & (df["datetime"] <= moscow_time)]
+            df_to_write = df_to_write.sort_values("datetime")  # сортировка по времени перед вставкой
 
             if not df_to_write.empty:
                 rows_added = insert_data(conn, table, df_to_write)
@@ -102,6 +111,8 @@ def refresh_and_append():
 
     logging.info("Итог по всем таблицам: " + " | ".join(summary))
 
+
+
 def run_forever(interval_seconds: int = 60):
     logging.info(f"run_forever запущен, интервал: {interval_seconds} секунд")
     while True:
@@ -111,5 +122,4 @@ def run_forever(interval_seconds: int = 60):
             logging.error(f"Ошибка в run_forever: {e}")
         time.sleep(interval_seconds)
 
-if __name__ == "__main__":
-    run_forever(interval_seconds=60)
+

@@ -27,3 +27,5 @@ if __name__ == "__main__":
         print("=" * 80)
         print(f"Таблица: {table}, строк: {len(df)}")
         print(df.head())
+        print("Последние строки:")
+        print(df.tail())
