@@ -72,7 +72,7 @@ sudo docker images
 ```
 
 ```bash
-sudo docker run -d --env-file .env -p 7072:7070 <image_id>
+sudo docker run -d --name ats_synthetic_container --env-file .env 3fa4b2c7d9e1
 ```
 
 
